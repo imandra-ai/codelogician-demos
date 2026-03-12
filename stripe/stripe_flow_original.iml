@@ -1,0 +1,271 @@
+(*
+
+  Strip payment flow example
+
+  stripe_flow_original.iml
+
+*)
+
+type order_status =
+  | Created
+  | PaymentIntentCreated
+  | RequiresAction
+  | Authorized
+  | ApprovedForCapture
+  | Captured
+  | PartiallyRefunded
+  | Refunded
+  | Disputed
+  | Canceled
+  | Failed
+
+type action =
+  | ActCreatePaymentIntent
+  | ActConfirmPaymentIntent
+  | ActCompleteThreeDS
+  | ActApproveForCapture
+  | ActCapture of int
+  | ActRefund of int
+  | ActCancelPaymentIntent
+  | ActOpenDispute
+
+type order = {
+  amount                : int;
+  amount_captured       : int;
+  amount_refunded       : int;
+
+  status                : order_status;
+
+  requires_review       : bool;
+  high_risk             : bool;
+
+  three_ds_required     : bool;
+  three_ds_completed    : bool;
+
+  approval_count        : int;
+
+  payment_intent_exists : bool;
+  latest_charge_exists  : bool;
+}
+
+let valid_amounts (o: order) =
+  0 <= o.amount &&
+  0 <= o.amount_captured &&
+  0 <= o.amount_refunded &&
+  o.amount_refunded <= o.amount_captured &&
+  o.amount_captured <= o.amount
+
+let init_order
+    (amount: int)
+    (requires_review: bool)
+    (high_risk: bool)
+    (three_ds_required: bool)
+  : order =
+  {
+    amount = amount;
+    amount_captured = 0;
+    amount_refunded = 0;
+
+    status = Created;
+
+    requires_review = requires_review;
+    high_risk = high_risk;
+
+    three_ds_required = three_ds_required;
+    three_ds_completed = false;
+
+    approval_count = 0;
+
+    payment_intent_exists = false;
+    latest_charge_exists = false;
+  }
+
+let create_payment_intent (o: order) : order =
+  if o.status = Created && 0 < o.amount then
+    { o with
+      status = PaymentIntentCreated;
+      payment_intent_exists = true
+    }
+  else o
+
+let confirm_payment_intent (o: order) : order =
+  if o.status = PaymentIntentCreated && o.payment_intent_exists then
+    if o.three_ds_required && not o.three_ds_completed then
+      { o with status = RequiresAction }
+    else
+      { o with
+        status = Authorized;
+        latest_charge_exists = true
+      }
+  else o
+
+let complete_three_ds (o: order) : order =
+  if o.status = RequiresAction && o.three_ds_required then
+    { o with
+      three_ds_completed = true;
+      status = Authorized;
+      latest_charge_exists = true
+    }
+  else o
+
+let approve_for_capture (o: order) : order =
+  if o.status = Authorized || o.status = ApprovedForCapture then
+    let new_count = o.approval_count + 1 in
+    { o with
+      approval_count = new_count;
+      status = ApprovedForCapture
+    }
+  else o
+
+let required_approvals (o: order) =
+  if o.high_risk then 2
+  else if o.requires_review then 1
+  else 0
+
+let may_capture (o: order) =
+  (o.status = Authorized || o.status = ApprovedForCapture) &&
+  o.latest_charge_exists &&
+  o.approval_count >= required_approvals o
+
+let capture_payment (amt: int) (o: order) : order =
+  if may_capture o &&
+     0 < amt &&
+     amt <= o.amount
+  then
+    { o with
+      amount_captured = amt;
+      status = Captured
+    }
+  else o
+
+let refund_payment (amt: int) (o: order) : order =
+  let remaining = o.amount_captured - o.amount_refunded in
+  if (o.status = Captured || o.status = PartiallyRefunded) &&
+     0 < amt && amt <= remaining
+  then
+    let new_refunded = o.amount_refunded + amt in
+    let new_status =
+      if new_refunded = o.amount_captured then Refunded
+      else PartiallyRefunded
+    in
+    { o with
+      amount_refunded = new_refunded;
+      status = new_status
+    }
+  else o
+
+let cancel_payment_intent (o: order) : order =
+  if o.payment_intent_exists &&
+     not (o.status = Captured) &&
+     not (o.status = PartiallyRefunded) &&
+     not (o.status = Refunded)
+  then
+    { o with status = Canceled }
+  else o
+
+let open_dispute (o: order) : order =
+  if o.status = Captured || o.status = PartiallyRefunded then
+    { o with status = Disputed }
+  else o
+
+let step (a: action) (o: order) : order =
+  match a with
+  | ActCreatePaymentIntent -> create_payment_intent o
+  | ActConfirmPaymentIntent -> confirm_payment_intent o
+  | ActCompleteThreeDS -> complete_three_ds o
+  | ActApproveForCapture -> approve_for_capture o
+  | ActCapture amt -> capture_payment amt o
+  | ActRefund amt -> refund_payment amt o
+  | ActCancelPaymentIntent -> cancel_payment_intent o
+  | ActOpenDispute -> open_dispute o
+[@@decomp top ()]
+
+
+let inv_amounts (o: order) =
+  0 <= o.amount &&
+  0 <= o.amount_captured &&
+  0 <= o.amount_refunded &&
+  o.amount_refunded <= o.amount_captured &&
+  o.amount_captured <= o.amount
+
+let inv_capture_requires_policy (o: order) =
+  o.status = Captured ==>
+  o.approval_count >= required_approvals o
+
+let inv_high_risk_two_approvals (o: order) =
+  o.high_risk && o.status = Captured ==>
+  o.approval_count >= 2
+
+let inv_refund_bounded (o: order) =
+  o.amount_refunded <= o.amount_captured
+
+let inv_no_cancel_after_capture_result (o: order) =
+  (o.status = Captured || o.status = PartiallyRefunded || o.status = Refunded) ==>
+  o.status <> Canceled
+
+(*** Amount invariant preserved by every transition ***)
+
+let prop_create_preserves_amounts (o: order) =
+  inv_amounts o ==> inv_amounts (create_payment_intent o)
+verify (prop_create_preserves_amounts)
+
+let prop_confirm_preserves_amounts (o: order) =
+  inv_amounts o ==> inv_amounts (confirm_payment_intent o)
+verify (prop_confirm_preserves_amounts)
+
+let prop_three_ds_preserves_amounts (o: order) =
+  inv_amounts o ==> inv_amounts (complete_three_ds o)
+verify (prop_three_ds_preserves_amounts)
+
+let prop_approve_preserves_amounts (o: order) =
+  inv_amounts o ==> inv_amounts (approve_for_capture o)
+verify (prop_approve_preserves_amounts)
+
+let prop_capture_preserves_amounts (amt: int) (o: order) =
+  inv_amounts o ==> inv_amounts (capture_payment amt o)
+verify (prop_capture_preserves_amounts)
+
+let prop_refund_preserves_amounts (amt: int) (o: order) =
+  inv_amounts o ==> inv_amounts (refund_payment amt o)
+verify (prop_refund_preserves_amounts)
+
+let prop_cancel_preserves_amounts (o: order) =
+  inv_amounts o ==> inv_amounts (cancel_payment_intent o)
+verify (prop_cancel_preserves_amounts)
+
+
+(*** Safety goals ***)
+
+let goal_no_cancel_after_capture (o: order) =
+  inv_amounts o &&
+  (o.status = Captured || o.status = PartiallyRefunded || o.status = Refunded) ==>
+  (cancel_payment_intent o).status <> Canceled
+verify (goal_no_cancel_after_capture)
+
+let goal_no_refund_before_capture (amt: int) (o: order) =
+  inv_amounts o &&
+  not (o.status = Captured || o.status = PartiallyRefunded) &&
+  not (o.status = Refunded) ==>
+  (refund_payment amt o).status <> PartiallyRefunded &&
+  (refund_payment amt o).status <> Refunded
+verify (goal_no_refund_before_capture)
+
+let goal_high_risk_needs_two_approvals (amt: int) (o: order) =
+  inv_amounts o &&
+  o.high_risk &&
+  o.approval_count < 2 &&
+  o.status <> Captured ==>
+  (capture_payment amt o).status <> Captured
+verify (goal_high_risk_needs_two_approvals)
+
+
+(*** Buggy reference variant for comparison ***)
+
+let buggy_may_capture (o: order) =
+  (o.status = Authorized || o.status = ApprovedForCapture) &&
+  o.latest_charge_exists &&
+  (
+    if o.high_risk then o.approval_count >= 1
+    else if o.requires_review then o.approval_count >= 1
+    else true
+  )

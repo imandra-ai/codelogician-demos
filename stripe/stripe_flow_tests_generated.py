@@ -1,0 +1,4148 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass
+class order:
+    amount: int
+    amount_captured: int
+    amount_refunded: int
+    status: order_status
+    requires_review: bool
+    high_risk: bool
+    three_ds_required: bool
+    three_ds_completed: bool
+    approval_count: int
+    payment_intent_exists: bool
+    latest_charge_exists: bool
+
+
+@dataclass
+class ActCreatePaymentIntent:
+    pass
+
+
+@dataclass
+class ActConfirmPaymentIntent:
+    pass
+
+
+@dataclass
+class ActCompleteThreeDS:
+    pass
+
+
+@dataclass
+class ActApproveForCapture:
+    pass
+
+
+@dataclass
+class ActCapture:
+    arg0: int
+
+
+@dataclass
+class ActRefund:
+    arg0: int
+
+
+@dataclass
+class ActCancelPaymentIntent:
+    pass
+
+
+@dataclass
+class ActOpenDispute:
+    pass
+
+
+action = (
+    ActCreatePaymentIntent
+    | ActConfirmPaymentIntent
+    | ActCompleteThreeDS
+    | ActApproveForCapture
+    | ActCapture
+    | ActRefund
+    | ActCancelPaymentIntent
+    | ActOpenDispute
+)
+
+
+@dataclass
+class Created:
+    pass
+
+
+@dataclass
+class PaymentIntentCreated:
+    pass
+
+
+@dataclass
+class RequiresAction:
+    pass
+
+
+@dataclass
+class Authorized:
+    pass
+
+
+@dataclass
+class ApprovedForCapture:
+    pass
+
+
+@dataclass
+class Captured:
+    pass
+
+
+@dataclass
+class PartiallyRefunded:
+    pass
+
+
+@dataclass
+class Refunded:
+    pass
+
+
+@dataclass
+class Disputed:
+    pass
+
+
+@dataclass
+class Canceled:
+    pass
+
+
+order_status = (
+    Created
+    | PaymentIntentCreated
+    | RequiresAction
+    | Authorized
+    | ApprovedForCapture
+    | Captured
+    | PartiallyRefunded
+    | Refunded
+    | Disputed
+    | Canceled
+)
+
+
+def test_1():
+    """test_1
+
+    - invariant: {o with
+    amount_refunded = o.amount_refunded + Destruct(ActRefund, 0, a);
+    status = Refunded}
+    - constraints:
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActCapture, a)
+        - not Is_a(ActCompleteThreeDS, a)
+        - not Is_a(ActConfirmPaymentIntent, a)
+        - not Is_a(ActCreatePaymentIntent, a)
+        - not Is_a(ActOpenDispute, a)
+        - o.status = Captured
+        - Destruct(ActRefund, 0, a) <= o.amount_captured + (-1) * o.amount_refunded
+        - Destruct(ActRefund, 0, a) + o.amount_refunded = o.amount_captured
+        - Destruct(ActRefund, 0, a) >= 1
+    """
+    result: order = step(
+        o=order(
+            amount=2,
+            amount_captured=0,
+            amount_refunded=-1,
+            status=Captured(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=3,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActRefund(1),
+    )
+    expected: order = order(
+        amount=2,
+        amount_captured=0,
+        amount_refunded=0,
+        status=Refunded(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=3,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_2():
+    """test_2
+
+    - invariant: {o with
+    amount_refunded = o.amount_refunded + Destruct(ActRefund, 0, a);
+    status = PartiallyRefunded}
+    - constraints:
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActCapture, a)
+        - not Is_a(ActCompleteThreeDS, a)
+        - not Is_a(ActConfirmPaymentIntent, a)
+        - not Is_a(ActCreatePaymentIntent, a)
+        - not Is_a(ActOpenDispute, a)
+        - o.status = Captured
+        - Destruct(ActRefund, 0, a) <= o.amount_captured + (-1) * o.amount_refunded
+        - not (Destruct(ActRefund, 0, a) + o.amount_refunded = o.amount_captured)
+        - Destruct(ActRefund, 0, a) >= 1
+    """
+    result: order = step(
+        o=order(
+            amount=2,
+            amount_captured=0,
+            amount_refunded=-2,
+            status=Captured(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=3,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActRefund(1),
+    )
+    expected: order = order(
+        amount=2,
+        amount_captured=0,
+        amount_refunded=-1,
+        status=PartiallyRefunded(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=3,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_3():
+    """test_3
+
+    - invariant: o
+    - constraints:
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActCapture, a)
+        - not Is_a(ActCompleteThreeDS, a)
+        - not Is_a(ActConfirmPaymentIntent, a)
+        - not Is_a(ActCreatePaymentIntent, a)
+        - not Is_a(ActOpenDispute, a)
+        - o.status = Captured
+        - not
+    (Destruct(ActRefund, 0, a) <= o.amount_captured + (-1) * o.amount_refunded)
+        - Destruct(ActRefund, 0, a) >= 1
+    """
+    result: order = step(
+        o=order(
+            amount=2,
+            amount_captured=0,
+            amount_refunded=38,
+            status=Captured(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=3,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActRefund(1),
+    )
+    expected: order = order(
+        amount=2,
+        amount_captured=0,
+        amount_refunded=38,
+        status=Captured(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=3,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_4():
+    """test_4
+
+    - invariant: o
+    - constraints:
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActCapture, a)
+        - not Is_a(ActCompleteThreeDS, a)
+        - not Is_a(ActConfirmPaymentIntent, a)
+        - not Is_a(ActCreatePaymentIntent, a)
+        - not Is_a(ActOpenDispute, a)
+        - o.status = Captured
+        - Destruct(ActRefund, 0, a) <= 0
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=0,
+            amount_refunded=0,
+            status=Captured(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActRefund(0),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=0,
+        amount_refunded=0,
+        status=Captured(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_5():
+    """test_5
+
+    - invariant: {o with
+    amount_refunded = o.amount_refunded + Destruct(ActRefund, 0, a);
+    status = Refunded}
+    - constraints:
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActCapture, a)
+        - not Is_a(ActCompleteThreeDS, a)
+        - not Is_a(ActConfirmPaymentIntent, a)
+        - not Is_a(ActCreatePaymentIntent, a)
+        - not Is_a(ActOpenDispute, a)
+        - not (o.status = Captured)
+        - o.status = PartiallyRefunded
+        - Destruct(ActRefund, 0, a) <= o.amount_captured + (-1) * o.amount_refunded
+        - Destruct(ActRefund, 0, a) + o.amount_refunded = o.amount_captured
+        - Destruct(ActRefund, 0, a) >= 1
+    """
+    result: order = step(
+        o=order(
+            amount=2,
+            amount_captured=0,
+            amount_refunded=-1,
+            status=PartiallyRefunded(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=3,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActRefund(1),
+    )
+    expected: order = order(
+        amount=2,
+        amount_captured=0,
+        amount_refunded=0,
+        status=Refunded(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=3,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_6():
+    """test_6
+
+    - invariant: {o with
+    amount_refunded = o.amount_refunded + Destruct(ActRefund, 0, a);
+    status = PartiallyRefunded}
+    - constraints:
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActCapture, a)
+        - not Is_a(ActCompleteThreeDS, a)
+        - not Is_a(ActConfirmPaymentIntent, a)
+        - not Is_a(ActCreatePaymentIntent, a)
+        - not Is_a(ActOpenDispute, a)
+        - not (o.status = Captured)
+        - o.status = PartiallyRefunded
+        - Destruct(ActRefund, 0, a) <= o.amount_captured + (-1) * o.amount_refunded
+        - not (Destruct(ActRefund, 0, a) + o.amount_refunded = o.amount_captured)
+        - Destruct(ActRefund, 0, a) >= 1
+    """
+    result: order = step(
+        o=order(
+            amount=2,
+            amount_captured=0,
+            amount_refunded=-2,
+            status=PartiallyRefunded(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=3,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActRefund(1),
+    )
+    expected: order = order(
+        amount=2,
+        amount_captured=0,
+        amount_refunded=-1,
+        status=PartiallyRefunded(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=3,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_7():
+    """test_7
+
+    - invariant: o
+    - constraints:
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActCapture, a)
+        - not Is_a(ActCompleteThreeDS, a)
+        - not Is_a(ActConfirmPaymentIntent, a)
+        - not Is_a(ActCreatePaymentIntent, a)
+        - not Is_a(ActOpenDispute, a)
+        - not (o.status = Captured)
+        - o.status = PartiallyRefunded
+        - not
+    (Destruct(ActRefund, 0, a) <= o.amount_captured + (-1) * o.amount_refunded)
+        - Destruct(ActRefund, 0, a) >= 1
+    """
+    result: order = step(
+        o=order(
+            amount=2,
+            amount_captured=0,
+            amount_refunded=38,
+            status=PartiallyRefunded(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=3,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActRefund(1),
+    )
+    expected: order = order(
+        amount=2,
+        amount_captured=0,
+        amount_refunded=38,
+        status=PartiallyRefunded(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=3,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_8():
+    """test_8
+
+    - invariant: o
+    - constraints:
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActCapture, a)
+        - not Is_a(ActCompleteThreeDS, a)
+        - not Is_a(ActConfirmPaymentIntent, a)
+        - not Is_a(ActCreatePaymentIntent, a)
+        - not Is_a(ActOpenDispute, a)
+        - not (o.status = Captured)
+        - o.status = PartiallyRefunded
+        - Destruct(ActRefund, 0, a) <= 0
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=0,
+            amount_refunded=0,
+            status=PartiallyRefunded(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActRefund(0),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=0,
+        amount_refunded=0,
+        status=PartiallyRefunded(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_9():
+    """test_9
+
+    - invariant: o
+    - constraints:
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActCapture, a)
+        - not Is_a(ActCompleteThreeDS, a)
+        - not Is_a(ActConfirmPaymentIntent, a)
+        - not Is_a(ActCreatePaymentIntent, a)
+        - not Is_a(ActOpenDispute, a)
+        - not (o.status = Captured)
+        - not (o.status = PartiallyRefunded)
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=0,
+            amount_refunded=0,
+            status=RequiresAction(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActRefund(0),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=0,
+        amount_refunded=0,
+        status=RequiresAction(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_10():
+    """test_10
+
+    - invariant: {o with status = Disputed}
+    - constraints:
+        - Is_a(ActOpenDispute, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActCapture, a)
+        - not Is_a(ActCompleteThreeDS, a)
+        - not Is_a(ActConfirmPaymentIntent, a)
+        - not Is_a(ActCreatePaymentIntent, a)
+        - o.status = Captured
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=0,
+            amount_refunded=0,
+            status=Captured(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActOpenDispute(),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=0,
+        amount_refunded=0,
+        status=Disputed(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_11():
+    """test_11
+
+    - invariant: {o with status = Disputed}
+    - constraints:
+        - Is_a(ActOpenDispute, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActCapture, a)
+        - not Is_a(ActCompleteThreeDS, a)
+        - not Is_a(ActConfirmPaymentIntent, a)
+        - not Is_a(ActCreatePaymentIntent, a)
+        - not (o.status = Captured)
+        - o.status = PartiallyRefunded
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=0,
+            amount_refunded=0,
+            status=PartiallyRefunded(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActOpenDispute(),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=0,
+        amount_refunded=0,
+        status=Disputed(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_12():
+    """test_12
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActOpenDispute, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActCapture, a)
+        - not Is_a(ActCompleteThreeDS, a)
+        - not Is_a(ActConfirmPaymentIntent, a)
+        - not Is_a(ActCreatePaymentIntent, a)
+        - not (o.status = Captured)
+        - not (o.status = PartiallyRefunded)
+    """
+    result: order = step(
+        a=ActOpenDispute(),
+        o=order(
+            amount=0,
+            amount_captured=0,
+            amount_refunded=0,
+            status=RequiresAction(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=0,
+        amount_refunded=0,
+        status=RequiresAction(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_13():
+    """test_13
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCreatePaymentIntent, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActCapture, a)
+        - not Is_a(ActCompleteThreeDS, a)
+        - not Is_a(ActConfirmPaymentIntent, a)
+        - not (o.status = Created)
+    """
+    result: order = step(
+        a=ActCreatePaymentIntent(),
+        o=order(
+            amount=0,
+            amount_captured=0,
+            amount_refunded=0,
+            status=RequiresAction(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=0,
+        amount_refunded=0,
+        status=RequiresAction(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_14():
+    """test_14
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCreatePaymentIntent, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActCapture, a)
+        - not Is_a(ActCompleteThreeDS, a)
+        - not Is_a(ActConfirmPaymentIntent, a)
+        - o.status = Created
+        - o.amount <= 0
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=1,
+            amount_refunded=2,
+            status=Created(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=3,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActCreatePaymentIntent(),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=1,
+        amount_refunded=2,
+        status=Created(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=3,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_15():
+    """test_15
+
+    - invariant: {o with status = PaymentIntentCreated; payment_intent_exists = true}
+    - constraints:
+        - Is_a(ActCreatePaymentIntent, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActCapture, a)
+        - not Is_a(ActCompleteThreeDS, a)
+        - not Is_a(ActConfirmPaymentIntent, a)
+        - o.status = Created
+        - o.amount >= 1
+    """
+    result: order = step(
+        o=order(
+            amount=1,
+            amount_captured=0,
+            amount_refunded=2,
+            status=Created(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=3,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActCreatePaymentIntent(),
+    )
+    expected: order = order(
+        amount=1,
+        amount_captured=0,
+        amount_refunded=2,
+        status=PaymentIntentCreated(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=3,
+        payment_intent_exists=True,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_16():
+    """test_16
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActConfirmPaymentIntent, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActCapture, a)
+        - not Is_a(ActCompleteThreeDS, a)
+        - not (o.status = PaymentIntentCreated)
+    """
+    result: order = step(
+        a=ActConfirmPaymentIntent(),
+        o=order(
+            amount=0,
+            amount_captured=0,
+            amount_refunded=0,
+            status=RequiresAction(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=0,
+        amount_refunded=0,
+        status=RequiresAction(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_17():
+    """test_17
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActConfirmPaymentIntent, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActCapture, a)
+        - not Is_a(ActCompleteThreeDS, a)
+        - o.status = PaymentIntentCreated
+        - not o.payment_intent_exists
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=1,
+            amount_refunded=2,
+            status=PaymentIntentCreated(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=3,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActConfirmPaymentIntent(),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=1,
+        amount_refunded=2,
+        status=PaymentIntentCreated(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=3,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_18():
+    """test_18
+
+    - invariant: {o with status = Authorized; latest_charge_exists = true}
+    - constraints:
+        - Is_a(ActConfirmPaymentIntent, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActCapture, a)
+        - not Is_a(ActCompleteThreeDS, a)
+        - o.payment_intent_exists
+        - o.status = PaymentIntentCreated
+        - not o.three_ds_required
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=1,
+            amount_refunded=2,
+            status=PaymentIntentCreated(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=3,
+            payment_intent_exists=True,
+            latest_charge_exists=False,
+        ),
+        a=ActConfirmPaymentIntent(),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=1,
+        amount_refunded=2,
+        status=Authorized(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=3,
+        payment_intent_exists=True,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_19():
+    """test_19
+
+    - invariant: {o with status = Authorized; latest_charge_exists = true}
+    - constraints:
+        - Is_a(ActConfirmPaymentIntent, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActCapture, a)
+        - not Is_a(ActCompleteThreeDS, a)
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.payment_intent_exists
+        - o.status = PaymentIntentCreated
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=1,
+            amount_refunded=2,
+            status=PaymentIntentCreated(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=3,
+            payment_intent_exists=True,
+            latest_charge_exists=False,
+        ),
+        a=ActConfirmPaymentIntent(),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=1,
+        amount_refunded=2,
+        status=Authorized(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=3,
+        payment_intent_exists=True,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_20():
+    """test_20
+
+    - invariant: {o with status = RequiresAction}
+    - constraints:
+        - Is_a(ActConfirmPaymentIntent, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActCapture, a)
+        - not Is_a(ActCompleteThreeDS, a)
+        - o.three_ds_required
+        - o.payment_intent_exists
+        - o.status = PaymentIntentCreated
+        - not o.three_ds_completed
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=1,
+            amount_refunded=2,
+            status=PaymentIntentCreated(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=True,
+            three_ds_completed=False,
+            approval_count=3,
+            payment_intent_exists=True,
+            latest_charge_exists=False,
+        ),
+        a=ActConfirmPaymentIntent(),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=1,
+        amount_refunded=2,
+        status=RequiresAction(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=True,
+        three_ds_completed=False,
+        approval_count=3,
+        payment_intent_exists=True,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_21():
+    """test_21
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCompleteThreeDS, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActCapture, a)
+        - not (o.status = RequiresAction)
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=0,
+            amount_refunded=0,
+            status=Created(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActCompleteThreeDS(),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=0,
+        amount_refunded=0,
+        status=Created(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_22():
+    """test_22
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCompleteThreeDS, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActCapture, a)
+        - not o.three_ds_required
+        - o.status = RequiresAction
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=1,
+            amount_refunded=2,
+            status=RequiresAction(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=3,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActCompleteThreeDS(),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=1,
+        amount_refunded=2,
+        status=RequiresAction(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=3,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_23():
+    """test_23
+
+    - invariant: {o with
+    status = Authorized; three_ds_completed = true; latest_charge_exists = true}
+    - constraints:
+        - Is_a(ActCompleteThreeDS, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActCapture, a)
+        - o.three_ds_required
+        - o.status = RequiresAction
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=1,
+            amount_refunded=2,
+            status=RequiresAction(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=True,
+            three_ds_completed=False,
+            approval_count=3,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActCompleteThreeDS(),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=1,
+        amount_refunded=2,
+        status=Authorized(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=3,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_24():
+    """test_24
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - o.status = Authorized
+        - not o.high_risk
+        - not o.requires_review
+        - o.approval_count <= (-1)
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=1,
+            amount_refunded=2,
+            status=Authorized(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=-1,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(3),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=1,
+        amount_refunded=2,
+        status=Authorized(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=-1,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_25():
+    """test_25
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.requires_review
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - o.status = Authorized
+        - not o.high_risk
+        - o.approval_count <= 0
+    """
+    result: order = step(
+        o=order(
+            amount=1,
+            amount_captured=2,
+            amount_refunded=3,
+            status=Authorized(),
+            requires_review=True,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(4),
+    )
+    expected: order = order(
+        amount=1,
+        amount_captured=2,
+        amount_refunded=3,
+        status=Authorized(),
+        requires_review=True,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_26():
+    """test_26
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.high_risk
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - o.status = Authorized
+        - o.approval_count <= 1
+    """
+    result: order = step(
+        o=order(
+            amount=1,
+            amount_captured=2,
+            amount_refunded=3,
+            status=Authorized(),
+            requires_review=False,
+            high_risk=True,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(4),
+    )
+    expected: order = order(
+        amount=1,
+        amount_captured=2,
+        amount_refunded=3,
+        status=Authorized(),
+        requires_review=False,
+        high_risk=True,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_27():
+    """test_27
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - o.status = Authorized
+        - not o.high_risk
+        - not o.requires_review
+        - o.approval_count <= (-1)
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=1,
+            amount_refunded=2,
+            status=Authorized(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=-1,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(3),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=1,
+        amount_refunded=2,
+        status=Authorized(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=-1,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_28():
+    """test_28
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.requires_review
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - o.status = Authorized
+        - not o.high_risk
+        - o.approval_count <= 0
+    """
+    result: order = step(
+        o=order(
+            amount=1,
+            amount_captured=2,
+            amount_refunded=3,
+            status=Authorized(),
+            requires_review=True,
+            high_risk=False,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(4),
+    )
+    expected: order = order(
+        amount=1,
+        amount_captured=2,
+        amount_refunded=3,
+        status=Authorized(),
+        requires_review=True,
+        high_risk=False,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_29():
+    """test_29
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.high_risk
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - o.status = Authorized
+        - o.approval_count <= 1
+    """
+    result: order = step(
+        o=order(
+            amount=1,
+            amount_captured=2,
+            amount_refunded=3,
+            status=Authorized(),
+            requires_review=False,
+            high_risk=True,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(4),
+    )
+    expected: order = order(
+        amount=1,
+        amount_captured=2,
+        amount_refunded=3,
+        status=Authorized(),
+        requires_review=False,
+        high_risk=True,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_30():
+    """test_30
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.three_ds_required
+        - o.latest_charge_exists
+        - not o.three_ds_completed
+        - o.status = Authorized
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=1,
+            amount_refunded=2,
+            status=Authorized(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=True,
+            three_ds_completed=False,
+            approval_count=3,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(4),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=1,
+        amount_refunded=2,
+        status=Authorized(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=True,
+        three_ds_completed=False,
+        approval_count=3,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_31():
+    """test_31
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.status = Authorized
+        - not o.latest_charge_exists
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=1,
+            amount_refunded=2,
+            status=Authorized(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=3,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActCapture(4),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=1,
+        amount_refunded=2,
+        status=Authorized(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=3,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_32():
+    """test_32
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - not o.high_risk
+        - not o.requires_review
+        - o.approval_count <= (-1)
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=1,
+            amount_refunded=2,
+            status=ApprovedForCapture(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=-1,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(3),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=1,
+        amount_refunded=2,
+        status=ApprovedForCapture(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=-1,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_33():
+    """test_33
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.requires_review
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - not o.high_risk
+        - o.approval_count <= 0
+    """
+    result: order = step(
+        o=order(
+            amount=1,
+            amount_captured=2,
+            amount_refunded=3,
+            status=ApprovedForCapture(),
+            requires_review=True,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(4),
+    )
+    expected: order = order(
+        amount=1,
+        amount_captured=2,
+        amount_refunded=3,
+        status=ApprovedForCapture(),
+        requires_review=True,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_34():
+    """test_34
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.high_risk
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - o.approval_count <= 1
+    """
+    result: order = step(
+        o=order(
+            amount=1,
+            amount_captured=2,
+            amount_refunded=3,
+            status=ApprovedForCapture(),
+            requires_review=False,
+            high_risk=True,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(4),
+    )
+    expected: order = order(
+        amount=1,
+        amount_captured=2,
+        amount_refunded=3,
+        status=ApprovedForCapture(),
+        requires_review=False,
+        high_risk=True,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_35():
+    """test_35
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - not o.high_risk
+        - not o.requires_review
+        - o.approval_count <= (-1)
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=1,
+            amount_refunded=2,
+            status=ApprovedForCapture(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=-1,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(3),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=1,
+        amount_refunded=2,
+        status=ApprovedForCapture(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=-1,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_36():
+    """test_36
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.requires_review
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - not o.high_risk
+        - o.approval_count <= 0
+    """
+    result: order = step(
+        o=order(
+            amount=1,
+            amount_captured=2,
+            amount_refunded=3,
+            status=ApprovedForCapture(),
+            requires_review=True,
+            high_risk=False,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(4),
+    )
+    expected: order = order(
+        amount=1,
+        amount_captured=2,
+        amount_refunded=3,
+        status=ApprovedForCapture(),
+        requires_review=True,
+        high_risk=False,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_37():
+    """test_37
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.high_risk
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - o.approval_count <= 1
+    """
+    result: order = step(
+        o=order(
+            amount=1,
+            amount_captured=2,
+            amount_refunded=3,
+            status=ApprovedForCapture(),
+            requires_review=False,
+            high_risk=True,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(4),
+    )
+    expected: order = order(
+        amount=1,
+        amount_captured=2,
+        amount_refunded=3,
+        status=ApprovedForCapture(),
+        requires_review=False,
+        high_risk=True,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_38():
+    """test_38
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.three_ds_required
+        - o.latest_charge_exists
+        - not o.three_ds_completed
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=1,
+            amount_refunded=2,
+            status=ApprovedForCapture(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=True,
+            three_ds_completed=False,
+            approval_count=3,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(4),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=1,
+        amount_refunded=2,
+        status=ApprovedForCapture(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=True,
+        three_ds_completed=False,
+        approval_count=3,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_39():
+    """test_39
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - not o.latest_charge_exists
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=1,
+            amount_refunded=2,
+            status=ApprovedForCapture(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=3,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActCapture(4),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=1,
+        amount_refunded=2,
+        status=ApprovedForCapture(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=3,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_40():
+    """test_40
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - not (o.status = Authorized)
+        - not (o.status = ApprovedForCapture)
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=0,
+            amount_refunded=0,
+            status=RequiresAction(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActCapture(0),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=0,
+        amount_refunded=0,
+        status=RequiresAction(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_41():
+    """test_41
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - o.status = Authorized
+        - not o.high_risk
+        - not o.requires_review
+        - Destruct(ActCapture, 0, a) <= 0
+        - o.approval_count >= 0
+    """
+    result: order = step(
+        o=order(
+            amount=1,
+            amount_captured=2,
+            amount_refunded=3,
+            status=Authorized(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=38,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(0),
+    )
+    expected: order = order(
+        amount=1,
+        amount_captured=2,
+        amount_refunded=3,
+        status=Authorized(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=38,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_42():
+    """test_42
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.requires_review
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - o.status = Authorized
+        - not o.high_risk
+        - Destruct(ActCapture, 0, a) <= 0
+        - o.approval_count >= 1
+    """
+    result: order = step(
+        o=order(
+            amount=2,
+            amount_captured=3,
+            amount_refunded=4,
+            status=Authorized(),
+            requires_review=True,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=1,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(0),
+    )
+    expected: order = order(
+        amount=2,
+        amount_captured=3,
+        amount_refunded=4,
+        status=Authorized(),
+        requires_review=True,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=1,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_43():
+    """test_43
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.high_risk
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - o.status = Authorized
+        - Destruct(ActCapture, 0, a) <= 0
+        - o.approval_count >= 2
+    """
+    result: order = step(
+        o=order(
+            amount=1,
+            amount_captured=3,
+            amount_refunded=4,
+            status=Authorized(),
+            requires_review=False,
+            high_risk=True,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=2,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(0),
+    )
+    expected: order = order(
+        amount=1,
+        amount_captured=3,
+        amount_refunded=4,
+        status=Authorized(),
+        requires_review=False,
+        high_risk=True,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=2,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_44():
+    """test_44
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - o.status = Authorized
+        - not o.high_risk
+        - not o.requires_review
+        - Destruct(ActCapture, 0, a) <= 0
+        - o.approval_count >= 0
+    """
+    result: order = step(
+        o=order(
+            amount=1,
+            amount_captured=2,
+            amount_refunded=3,
+            status=Authorized(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=38,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(0),
+    )
+    expected: order = order(
+        amount=1,
+        amount_captured=2,
+        amount_refunded=3,
+        status=Authorized(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=38,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_45():
+    """test_45
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.requires_review
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - o.status = Authorized
+        - not o.high_risk
+        - Destruct(ActCapture, 0, a) <= 0
+        - o.approval_count >= 1
+    """
+    result: order = step(
+        o=order(
+            amount=2,
+            amount_captured=3,
+            amount_refunded=4,
+            status=Authorized(),
+            requires_review=True,
+            high_risk=False,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=1,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(0),
+    )
+    expected: order = order(
+        amount=2,
+        amount_captured=3,
+        amount_refunded=4,
+        status=Authorized(),
+        requires_review=True,
+        high_risk=False,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=1,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_46():
+    """test_46
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.high_risk
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - o.status = Authorized
+        - Destruct(ActCapture, 0, a) <= 0
+        - o.approval_count >= 2
+    """
+    result: order = step(
+        o=order(
+            amount=1,
+            amount_captured=3,
+            amount_refunded=4,
+            status=Authorized(),
+            requires_review=False,
+            high_risk=True,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=2,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(0),
+    )
+    expected: order = order(
+        amount=1,
+        amount_captured=3,
+        amount_refunded=4,
+        status=Authorized(),
+        requires_review=False,
+        high_risk=True,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=2,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_47():
+    """test_47
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - not o.high_risk
+        - not o.requires_review
+        - Destruct(ActCapture, 0, a) <= 0
+        - o.approval_count >= 0
+    """
+    result: order = step(
+        o=order(
+            amount=1,
+            amount_captured=2,
+            amount_refunded=3,
+            status=ApprovedForCapture(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=38,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(0),
+    )
+    expected: order = order(
+        amount=1,
+        amount_captured=2,
+        amount_refunded=3,
+        status=ApprovedForCapture(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=38,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_48():
+    """test_48
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.requires_review
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - not o.high_risk
+        - Destruct(ActCapture, 0, a) <= 0
+        - o.approval_count >= 1
+    """
+    result: order = step(
+        o=order(
+            amount=2,
+            amount_captured=3,
+            amount_refunded=4,
+            status=ApprovedForCapture(),
+            requires_review=True,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=1,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(0),
+    )
+    expected: order = order(
+        amount=2,
+        amount_captured=3,
+        amount_refunded=4,
+        status=ApprovedForCapture(),
+        requires_review=True,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=1,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_49():
+    """test_49
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.high_risk
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - Destruct(ActCapture, 0, a) <= 0
+        - o.approval_count >= 2
+    """
+    result: order = step(
+        o=order(
+            amount=1,
+            amount_captured=3,
+            amount_refunded=4,
+            status=ApprovedForCapture(),
+            requires_review=False,
+            high_risk=True,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=2,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(0),
+    )
+    expected: order = order(
+        amount=1,
+        amount_captured=3,
+        amount_refunded=4,
+        status=ApprovedForCapture(),
+        requires_review=False,
+        high_risk=True,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=2,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_50():
+    """test_50
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - not o.high_risk
+        - not o.requires_review
+        - Destruct(ActCapture, 0, a) <= 0
+        - o.approval_count >= 0
+    """
+    result: order = step(
+        o=order(
+            amount=1,
+            amount_captured=2,
+            amount_refunded=3,
+            status=ApprovedForCapture(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=38,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(0),
+    )
+    expected: order = order(
+        amount=1,
+        amount_captured=2,
+        amount_refunded=3,
+        status=ApprovedForCapture(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=38,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_51():
+    """test_51
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.requires_review
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - not o.high_risk
+        - Destruct(ActCapture, 0, a) <= 0
+        - o.approval_count >= 1
+    """
+    result: order = step(
+        o=order(
+            amount=2,
+            amount_captured=3,
+            amount_refunded=4,
+            status=ApprovedForCapture(),
+            requires_review=True,
+            high_risk=False,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=1,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(0),
+    )
+    expected: order = order(
+        amount=2,
+        amount_captured=3,
+        amount_refunded=4,
+        status=ApprovedForCapture(),
+        requires_review=True,
+        high_risk=False,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=1,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_52():
+    """test_52
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.high_risk
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - Destruct(ActCapture, 0, a) <= 0
+        - o.approval_count >= 2
+    """
+    result: order = step(
+        o=order(
+            amount=1,
+            amount_captured=3,
+            amount_refunded=4,
+            status=ApprovedForCapture(),
+            requires_review=False,
+            high_risk=True,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=2,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(0),
+    )
+    expected: order = order(
+        amount=1,
+        amount_captured=3,
+        amount_refunded=4,
+        status=ApprovedForCapture(),
+        requires_review=False,
+        high_risk=True,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=2,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_53():
+    """test_53
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - not (Destruct(ActCapture, 0, a) <= o.amount)
+        - o.status = Authorized
+        - not o.high_risk
+        - not o.requires_review
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 0
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=2,
+            amount_refunded=3,
+            status=Authorized(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=38,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(1),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=2,
+        amount_refunded=3,
+        status=Authorized(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=38,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_54():
+    """test_54
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.requires_review
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - not (Destruct(ActCapture, 0, a) <= o.amount)
+        - o.status = Authorized
+        - not o.high_risk
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 1
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=2,
+            amount_refunded=3,
+            status=Authorized(),
+            requires_review=True,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=39,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(1),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=2,
+        amount_refunded=3,
+        status=Authorized(),
+        requires_review=True,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=39,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_55():
+    """test_55
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.high_risk
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - not (Destruct(ActCapture, 0, a) <= o.amount)
+        - o.status = Authorized
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 2
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=3,
+            amount_refunded=4,
+            status=Authorized(),
+            requires_review=False,
+            high_risk=True,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=2,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(1),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=3,
+        amount_refunded=4,
+        status=Authorized(),
+        requires_review=False,
+        high_risk=True,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=2,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_56():
+    """test_56
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - not (Destruct(ActCapture, 0, a) <= o.amount)
+        - o.status = Authorized
+        - not o.high_risk
+        - not o.requires_review
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 0
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=2,
+            amount_refunded=3,
+            status=Authorized(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=38,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(1),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=2,
+        amount_refunded=3,
+        status=Authorized(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=38,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_57():
+    """test_57
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.requires_review
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - not (Destruct(ActCapture, 0, a) <= o.amount)
+        - o.status = Authorized
+        - not o.high_risk
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 1
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=2,
+            amount_refunded=3,
+            status=Authorized(),
+            requires_review=True,
+            high_risk=False,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=39,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(1),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=2,
+        amount_refunded=3,
+        status=Authorized(),
+        requires_review=True,
+        high_risk=False,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=39,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_58():
+    """test_58
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.high_risk
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - not (Destruct(ActCapture, 0, a) <= o.amount)
+        - o.status = Authorized
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 2
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=3,
+            amount_refunded=4,
+            status=Authorized(),
+            requires_review=False,
+            high_risk=True,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=2,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(1),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=3,
+        amount_refunded=4,
+        status=Authorized(),
+        requires_review=False,
+        high_risk=True,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=2,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_59():
+    """test_59
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - not (Destruct(ActCapture, 0, a) <= o.amount)
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - not o.high_risk
+        - not o.requires_review
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 0
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=2,
+            amount_refunded=3,
+            status=ApprovedForCapture(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=38,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(1),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=2,
+        amount_refunded=3,
+        status=ApprovedForCapture(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=38,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_60():
+    """test_60
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.requires_review
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - not (Destruct(ActCapture, 0, a) <= o.amount)
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - not o.high_risk
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 1
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=2,
+            amount_refunded=3,
+            status=ApprovedForCapture(),
+            requires_review=True,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=39,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(1),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=2,
+        amount_refunded=3,
+        status=ApprovedForCapture(),
+        requires_review=True,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=39,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_61():
+    """test_61
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.high_risk
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - not (Destruct(ActCapture, 0, a) <= o.amount)
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 2
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=3,
+            amount_refunded=4,
+            status=ApprovedForCapture(),
+            requires_review=False,
+            high_risk=True,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=2,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(1),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=3,
+        amount_refunded=4,
+        status=ApprovedForCapture(),
+        requires_review=False,
+        high_risk=True,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=2,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_62():
+    """test_62
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - not (Destruct(ActCapture, 0, a) <= o.amount)
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - not o.high_risk
+        - not o.requires_review
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 0
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=2,
+            amount_refunded=3,
+            status=ApprovedForCapture(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=38,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(1),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=2,
+        amount_refunded=3,
+        status=ApprovedForCapture(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=38,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_63():
+    """test_63
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.requires_review
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - not (Destruct(ActCapture, 0, a) <= o.amount)
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - not o.high_risk
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 1
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=2,
+            amount_refunded=3,
+            status=ApprovedForCapture(),
+            requires_review=True,
+            high_risk=False,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=39,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(1),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=2,
+        amount_refunded=3,
+        status=ApprovedForCapture(),
+        requires_review=True,
+        high_risk=False,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=39,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_64():
+    """test_64
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.high_risk
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - not (Destruct(ActCapture, 0, a) <= o.amount)
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 2
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=3,
+            amount_refunded=4,
+            status=ApprovedForCapture(),
+            requires_review=False,
+            high_risk=True,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=2,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(1),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=3,
+        amount_refunded=4,
+        status=ApprovedForCapture(),
+        requires_review=False,
+        high_risk=True,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=2,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_65():
+    """test_65
+
+    - invariant: {o with
+    amount_captured = Destruct(ActCapture, 0, a); amount_refunded = 0;
+    status = Captured}
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - Destruct(ActCapture, 0, a) <= o.amount
+        - o.status = Authorized
+        - not o.high_risk
+        - not o.requires_review
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 0
+    """
+    result: order = step(
+        o=order(
+            amount=39,
+            amount_captured=1,
+            amount_refunded=2,
+            status=Authorized(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(39),
+    )
+    expected: order = order(
+        amount=39,
+        amount_captured=39,
+        amount_refunded=0,
+        status=Captured(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_66():
+    """test_66
+
+    - invariant: {o with
+    amount_captured = Destruct(ActCapture, 0, a); amount_refunded = 0;
+    status = Captured}
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.requires_review
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - Destruct(ActCapture, 0, a) <= o.amount
+        - o.status = Authorized
+        - not o.high_risk
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 1
+    """
+    result: order = step(
+        o=order(
+            amount=39,
+            amount_captured=1,
+            amount_refunded=2,
+            status=Authorized(),
+            requires_review=True,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=7720,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(39),
+    )
+    expected: order = order(
+        amount=39,
+        amount_captured=39,
+        amount_refunded=0,
+        status=Captured(),
+        requires_review=True,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=7720,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_67():
+    """test_67
+
+    - invariant: {o with
+    amount_captured = Destruct(ActCapture, 0, a); amount_refunded = 0;
+    status = Captured}
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.high_risk
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - Destruct(ActCapture, 0, a) <= o.amount
+        - o.status = Authorized
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 2
+    """
+    result: order = step(
+        o=order(
+            amount=39,
+            amount_captured=1,
+            amount_refunded=3,
+            status=Authorized(),
+            requires_review=False,
+            high_risk=True,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=2,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(39),
+    )
+    expected: order = order(
+        amount=39,
+        amount_captured=39,
+        amount_refunded=0,
+        status=Captured(),
+        requires_review=False,
+        high_risk=True,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=2,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_68():
+    """test_68
+
+    - invariant: {o with
+    amount_captured = Destruct(ActCapture, 0, a); amount_refunded = 0;
+    status = Captured}
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - Destruct(ActCapture, 0, a) <= o.amount
+        - o.status = Authorized
+        - not o.high_risk
+        - not o.requires_review
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 0
+    """
+    result: order = step(
+        o=order(
+            amount=39,
+            amount_captured=1,
+            amount_refunded=2,
+            status=Authorized(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(39),
+    )
+    expected: order = order(
+        amount=39,
+        amount_captured=39,
+        amount_refunded=0,
+        status=Captured(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_69():
+    """test_69
+
+    - invariant: {o with
+    amount_captured = Destruct(ActCapture, 0, a); amount_refunded = 0;
+    status = Captured}
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.requires_review
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - Destruct(ActCapture, 0, a) <= o.amount
+        - o.status = Authorized
+        - not o.high_risk
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 1
+    """
+    result: order = step(
+        o=order(
+            amount=39,
+            amount_captured=1,
+            amount_refunded=2,
+            status=Authorized(),
+            requires_review=True,
+            high_risk=False,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=7720,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(39),
+    )
+    expected: order = order(
+        amount=39,
+        amount_captured=39,
+        amount_refunded=0,
+        status=Captured(),
+        requires_review=True,
+        high_risk=False,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=7720,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_70():
+    """test_70
+
+    - invariant: {o with
+    amount_captured = Destruct(ActCapture, 0, a); amount_refunded = 0;
+    status = Captured}
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.high_risk
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - Destruct(ActCapture, 0, a) <= o.amount
+        - o.status = Authorized
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 2
+    """
+    result: order = step(
+        o=order(
+            amount=39,
+            amount_captured=1,
+            amount_refunded=3,
+            status=Authorized(),
+            requires_review=False,
+            high_risk=True,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=2,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(39),
+    )
+    expected: order = order(
+        amount=39,
+        amount_captured=39,
+        amount_refunded=0,
+        status=Captured(),
+        requires_review=False,
+        high_risk=True,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=2,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_71():
+    """test_71
+
+    - invariant: {o with
+    amount_captured = Destruct(ActCapture, 0, a); amount_refunded = 0;
+    status = Captured}
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - Destruct(ActCapture, 0, a) <= o.amount
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - not o.high_risk
+        - not o.requires_review
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 0
+    """
+    result: order = step(
+        o=order(
+            amount=39,
+            amount_captured=1,
+            amount_refunded=2,
+            status=ApprovedForCapture(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(39),
+    )
+    expected: order = order(
+        amount=39,
+        amount_captured=39,
+        amount_refunded=0,
+        status=Captured(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_72():
+    """test_72
+
+    - invariant: {o with
+    amount_captured = Destruct(ActCapture, 0, a); amount_refunded = 0;
+    status = Captured}
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.requires_review
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - Destruct(ActCapture, 0, a) <= o.amount
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - not o.high_risk
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 1
+    """
+    result: order = step(
+        o=order(
+            amount=39,
+            amount_captured=1,
+            amount_refunded=2,
+            status=ApprovedForCapture(),
+            requires_review=True,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=7720,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(39),
+    )
+    expected: order = order(
+        amount=39,
+        amount_captured=39,
+        amount_refunded=0,
+        status=Captured(),
+        requires_review=True,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=7720,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_73():
+    """test_73
+
+    - invariant: {o with
+    amount_captured = Destruct(ActCapture, 0, a); amount_refunded = 0;
+    status = Captured}
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.high_risk
+        - o.latest_charge_exists
+        - not o.three_ds_required
+        - Destruct(ActCapture, 0, a) <= o.amount
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 2
+    """
+    result: order = step(
+        o=order(
+            amount=39,
+            amount_captured=1,
+            amount_refunded=3,
+            status=ApprovedForCapture(),
+            requires_review=False,
+            high_risk=True,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=2,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(39),
+    )
+    expected: order = order(
+        amount=39,
+        amount_captured=39,
+        amount_refunded=0,
+        status=Captured(),
+        requires_review=False,
+        high_risk=True,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=2,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_74():
+    """test_74
+
+    - invariant: {o with
+    amount_captured = Destruct(ActCapture, 0, a); amount_refunded = 0;
+    status = Captured}
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - Destruct(ActCapture, 0, a) <= o.amount
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - not o.high_risk
+        - not o.requires_review
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 0
+    """
+    result: order = step(
+        o=order(
+            amount=39,
+            amount_captured=1,
+            amount_refunded=2,
+            status=ApprovedForCapture(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(39),
+    )
+    expected: order = order(
+        amount=39,
+        amount_captured=39,
+        amount_refunded=0,
+        status=Captured(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_75():
+    """test_75
+
+    - invariant: {o with
+    amount_captured = Destruct(ActCapture, 0, a); amount_refunded = 0;
+    status = Captured}
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.requires_review
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - Destruct(ActCapture, 0, a) <= o.amount
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - not o.high_risk
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 1
+    """
+    result: order = step(
+        o=order(
+            amount=39,
+            amount_captured=1,
+            amount_refunded=2,
+            status=ApprovedForCapture(),
+            requires_review=True,
+            high_risk=False,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=7720,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(39),
+    )
+    expected: order = order(
+        amount=39,
+        amount_captured=39,
+        amount_refunded=0,
+        status=Captured(),
+        requires_review=True,
+        high_risk=False,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=7720,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_76():
+    """test_76
+
+    - invariant: {o with
+    amount_captured = Destruct(ActCapture, 0, a); amount_refunded = 0;
+    status = Captured}
+    - constraints:
+        - Is_a(ActCapture, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not Is_a(ActCancelPaymentIntent, a)
+        - o.high_risk
+        - o.three_ds_required
+        - o.three_ds_completed
+        - o.latest_charge_exists
+        - Destruct(ActCapture, 0, a) <= o.amount
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+        - Destruct(ActCapture, 0, a) >= 1
+        - o.approval_count >= 2
+    """
+    result: order = step(
+        o=order(
+            amount=39,
+            amount_captured=1,
+            amount_refunded=3,
+            status=ApprovedForCapture(),
+            requires_review=False,
+            high_risk=True,
+            three_ds_required=True,
+            three_ds_completed=True,
+            approval_count=2,
+            payment_intent_exists=False,
+            latest_charge_exists=True,
+        ),
+        a=ActCapture(39),
+    )
+    expected: order = order(
+        amount=39,
+        amount_captured=39,
+        amount_refunded=0,
+        status=Captured(),
+        requires_review=False,
+        high_risk=True,
+        three_ds_required=True,
+        three_ds_completed=True,
+        approval_count=2,
+        payment_intent_exists=False,
+        latest_charge_exists=True,
+    )
+    assert result == expected
+
+
+def test_77():
+    """test_77
+
+    - invariant: {o with status = Canceled}
+    - constraints:
+        - Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not (o.status = Captured)
+        - not (o.status = PartiallyRefunded)
+        - o.payment_intent_exists
+        - not (o.status = Refunded)
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=1,
+            amount_refunded=2,
+            status=RequiresAction(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=3,
+            payment_intent_exists=True,
+            latest_charge_exists=False,
+        ),
+        a=ActCancelPaymentIntent(),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=1,
+        amount_refunded=2,
+        status=Canceled(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=3,
+        payment_intent_exists=True,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_78():
+    """test_78
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not (o.status = Captured)
+        - not (o.status = PartiallyRefunded)
+        - o.payment_intent_exists
+        - o.status = Refunded
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=1,
+            amount_refunded=2,
+            status=Refunded(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=3,
+            payment_intent_exists=True,
+            latest_charge_exists=False,
+        ),
+        a=ActCancelPaymentIntent(),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=1,
+        amount_refunded=2,
+        status=Refunded(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=3,
+        payment_intent_exists=True,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_79():
+    """test_79
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not (o.status = Captured)
+        - o.status = PartiallyRefunded
+        - o.payment_intent_exists
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=1,
+            amount_refunded=2,
+            status=PartiallyRefunded(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=3,
+            payment_intent_exists=True,
+            latest_charge_exists=False,
+        ),
+        a=ActCancelPaymentIntent(),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=1,
+        amount_refunded=2,
+        status=PartiallyRefunded(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=3,
+        payment_intent_exists=True,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_80():
+    """test_80
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActApproveForCapture, a)
+        - o.status = Captured
+        - o.payment_intent_exists
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=1,
+            amount_refunded=2,
+            status=Captured(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=3,
+            payment_intent_exists=True,
+            latest_charge_exists=False,
+        ),
+        a=ActCancelPaymentIntent(),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=1,
+        amount_refunded=2,
+        status=Captured(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=3,
+        payment_intent_exists=True,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_81():
+    """test_81
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActCancelPaymentIntent, a)
+        - not Is_a(ActApproveForCapture, a)
+        - not o.payment_intent_exists
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=0,
+            amount_refunded=0,
+            status=RequiresAction(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActCancelPaymentIntent(),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=0,
+        amount_refunded=0,
+        status=RequiresAction(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_82():
+    """test_82
+
+    - invariant: {o with status = ApprovedForCapture; approval_count = o.approval_count + 1}
+    - constraints:
+        - Is_a(ActApproveForCapture, a)
+        - o.status = Authorized
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=0,
+            amount_refunded=0,
+            status=Authorized(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActApproveForCapture(),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=0,
+        amount_refunded=0,
+        status=ApprovedForCapture(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=1,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_83():
+    """test_83
+
+    - invariant: {o with status = ApprovedForCapture; approval_count = o.approval_count + 1}
+    - constraints:
+        - Is_a(ActApproveForCapture, a)
+        - o.status = ApprovedForCapture
+        - not (o.status = Authorized)
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=0,
+            amount_refunded=0,
+            status=ApprovedForCapture(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActApproveForCapture(),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=0,
+        amount_refunded=0,
+        status=ApprovedForCapture(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=1,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
+
+
+def test_84():
+    """test_84
+
+    - invariant: o
+    - constraints:
+        - Is_a(ActApproveForCapture, a)
+        - not (o.status = Authorized)
+        - not (o.status = ApprovedForCapture)
+    """
+    result: order = step(
+        o=order(
+            amount=0,
+            amount_captured=0,
+            amount_refunded=0,
+            status=RequiresAction(),
+            requires_review=False,
+            high_risk=False,
+            three_ds_required=False,
+            three_ds_completed=False,
+            approval_count=0,
+            payment_intent_exists=False,
+            latest_charge_exists=False,
+        ),
+        a=ActApproveForCapture(),
+    )
+    expected: order = order(
+        amount=0,
+        amount_captured=0,
+        amount_refunded=0,
+        status=RequiresAction(),
+        requires_review=False,
+        high_risk=False,
+        three_ds_required=False,
+        three_ds_completed=False,
+        approval_count=0,
+        payment_intent_exists=False,
+        latest_charge_exists=False,
+    )
+    assert result == expected
