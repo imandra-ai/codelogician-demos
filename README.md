@@ -6,6 +6,50 @@ CodeLogician is a neurosymbolic governance framework that helps AI coding agents
 
 ## Demos
 
+### [intro/](intro/)
+
+**Hands-on tutorial for the `codelogician eval` command and all its subcommands.**
+
+A step-by-step guide that walks through the full `eval` pipeline — from type-checking IML code to proving properties to generating tests — using minimal, self-contained examples. Also includes a walkthrough of the [stripe/](stripe/) example to show the same pipeline on real-world business logic.
+
+Covers:
+1. **Error feedback** — what syntax and type errors look like in the CLI
+2. **`eval check`** — type-checking and admitting IML definitions
+3. **`eval list-vg` / `eval check-vg`** — listing and running verification goals (`verify` and `instance`)
+4. **`eval list-decomp` / `eval check-decomp`** — region decomposition of function input spaces
+5. **`eval gen-test`** — generating Python/TypeScript test cases from decomposition regions
+6. **Stripe walkthrough** — running the full pipeline on the payment flow model (bug discovery, 14 proofs, 84 regions, test generation)
+
+#### Files
+
+| File | Description |
+|------|-------------|
+| `eval-tutorial.md` | The full tutorial with runnable commands |
+| `iml/errors.iml` | Syntax and type error examples (uncomment to trigger) |
+| `iml/basics.iml` | Simple functions (`my_abs`, `clamp`) for `eval check` |
+| `iml/verify_abs.iml` | `verify` and `instance` goals on `my_abs` |
+| `iml/decomp_clamp.iml` | Region decomposition on `clamp` (3 regions) |
+| `iml/decomp_discount.iml` | Decomposition with record types and `~assuming` (4 regions) |
+
+#### Quick start
+
+```bash
+# Install CodeLogician
+curl -fsSL https://codelogician.dev/codelogician/install.sh | sh
+
+# Set your API key (free tier at https://universe.imandra.ai)
+export IMANDRA_UNI_KEY=your_key_here
+
+# Run the tutorial examples
+cd intro
+codelogician eval check iml/basics.iml
+codelogician eval check-vg --check-all iml/verify_abs.iml
+codelogician eval check-decomp --index 1 iml/decomp_clamp.iml
+codelogician eval gen-test iml/decomp_discount.iml -f discount -l python
+```
+
+---
+
 ### [stripe/](stripe/)
 
 **Formally verifying a Stripe payment flow with Claude and CodeLogician.**
@@ -34,7 +78,7 @@ Takes a production Stripe payment processing flow (Flask/Python, ~700 lines) thr
 
 ```bash
 # Install CodeLogician (requires IMANDRA_UNI_KEY from https://universe.imandra.ai)
-pip install codelogician
+curl -fsSL https://codelogician.dev/codelogician/install.sh | sh
 
 # Check the original model (has the bug)
 codelogician eval check stripe/stripe_flow_original.iml

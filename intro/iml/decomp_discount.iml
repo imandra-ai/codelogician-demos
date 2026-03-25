@@ -1,0 +1,12 @@
+type customer = { age : int; is_member : bool; total : real }
+
+let valid c = c.age >= 0 && c.total >=. 0.0
+
+let discount (c : customer) : real =
+  if c.is_member then
+    if c.age >= 65 then c.total *. 0.20
+    else c.total *. 0.10
+  else
+    if c.age >= 65 then c.total *. 0.05
+    else 0.0
+[@@decomp top ~assuming:[%id valid] ()]

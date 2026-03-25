@@ -1,0 +1,6 @@
+(* Syntax error: incomplete if/else — uncomment to see SyntaxErr *)
+(* let bad (x : int) : int =
+  if x > 0 then x else *)
+
+(* Type error: adding int + string — uncomment to see TypeErr *)
+(* let add (x : int) (y : string) : int = x + y *)

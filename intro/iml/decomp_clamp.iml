@@ -1,0 +1,5 @@
+let clamp (lo : int) (hi : int) (x : int) : int =
+  if x < lo then lo
+  else if x > hi then hi
+  else x
+[@@decomp top ()]
