@@ -1,0 +1,65 @@
+(* Algorithmic Trading Rules Analysis
+   Demonstrates how formal verification detects redundant business rules.
+   A special rule for client XYZ with BENCHMARK_CLOSE_ONLY appeared to restrict
+   trading to the CLOSE phase, but the base rule already enforced this. *)
+
+type algo_type =
+  | Benchmark_time
+  | Benchmark_volume
+  | Benchmark_close
+  | Benchmark_close_only
+  | Liquidity_seek_passive
+  | Liquidity_seek_aggressive
+
+type trading_phase = Continuous | Close
+
+type client_id = ABC | DEF | GHI | JLK | LMN | OPQ | RST | UVW | XYZ
+
+let is_trading_phase_eligible_for_algo_type
+    (algo_type : algo_type)
+    (trading_phase : trading_phase) : bool =
+  match algo_type, trading_phase with
+  | Benchmark_time, Continuous -> true
+  | Benchmark_time, Close -> true
+  | Benchmark_volume, Continuous -> true
+  | Benchmark_volume, Close -> true
+  | Benchmark_close, Continuous -> true
+  | Benchmark_close, Close -> true
+  | Benchmark_close_only, Continuous -> false
+  | Benchmark_close_only, Close -> true
+  | Liquidity_seek_passive, Continuous -> true
+  | Liquidity_seek_passive, Close -> false
+  | Liquidity_seek_aggressive, Continuous -> true
+  | Liquidity_seek_aggressive, Close -> false
+
+let is_trading_phase_eligible_for_client_and_algo
+    (client_id : client_id)
+    (algo_type : algo_type)
+    (trading_phase : trading_phase) : bool =
+  if client_id = XYZ && algo_type = Benchmark_close_only then
+    trading_phase = Close
+  else
+    is_trading_phase_eligible_for_algo_type algo_type trading_phase
+
+(* VG1: The redundancy check always returns true — the special case
+   for XYZ is identical to the general rule *)
+let verify_xyz_rule_is_redundant
+    (client_id : client_id)
+    (algo_type : algo_type)
+    (trading_phase : trading_phase) : bool =
+  if client_id = XYZ && algo_type = Benchmark_close_only then
+    let special_case_result = (trading_phase = Close) in
+    let general_rule_result =
+      is_trading_phase_eligible_for_algo_type algo_type trading_phase
+    in
+    special_case_result = general_rule_result
+  else
+    true
+
+verify (fun client_id algo_type trading_phase ->
+  verify_xyz_rule_is_redundant client_id algo_type trading_phase = true)
+
+(* VG2: Client-specific and general functions are equivalent for XYZ + BENCHMARK_CLOSE_ONLY *)
+verify (fun trading_phase ->
+  is_trading_phase_eligible_for_client_and_algo XYZ Benchmark_close_only trading_phase
+  = is_trading_phase_eligible_for_algo_type Benchmark_close_only trading_phase)

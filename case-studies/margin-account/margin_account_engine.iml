@@ -1,0 +1,93 @@
+(* Margin Account Engine Verification
+   Formal verification of a margin account state machine for institutional trading.
+   Three states: HEALTHY (equity ratio >= 50%), RESTRICTED (25% <= ratio < 50%),
+   LIQUIDATION_CALL (ratio < 25%). *)
+
+type account_status = Healthy | Restricted | LiquidationCall
+
+type margin_requirements = {
+  initial_margin_pct : real;
+  maintenance_margin_pct : real;
+}
+
+type position = {
+  shares : real;
+  current_price : real;
+}
+
+type margin_account_engine = {
+  cash_balance : real;
+  loan_value : real;
+  margin_requirements : margin_requirements;
+  position : position option;
+}
+
+let position_market_value (p : position) : real =
+  p.shares *. p.current_price
+
+let calculate_equity (engine : margin_account_engine) : real =
+  let market_value =
+    match engine.position with
+    | Some p -> position_market_value p
+    | None -> 0.0
+  in
+  engine.cash_balance +. market_value -. engine.loan_value
+
+let calculate_equity_ratio (engine : margin_account_engine) : real option =
+  match engine.position with
+  | None -> None
+  | Some p ->
+    let market_value = position_market_value p in
+    if market_value = 0.0 then None
+    else
+      let equity = calculate_equity engine in
+      Some (equity /. market_value)
+
+let check_status (engine : margin_account_engine) : account_status =
+  match calculate_equity_ratio engine with
+  | None -> Healthy
+  | Some equity_ratio ->
+    let maintenance_ratio = engine.margin_requirements.maintenance_margin_pct /. 100.0 in
+    let initial_ratio = engine.margin_requirements.initial_margin_pct /. 100.0 in
+    if equity_ratio <. maintenance_ratio then LiquidationCall
+    else if equity_ratio <. initial_ratio then Restricted
+    else Healthy
+
+let can_withdraw (engine : margin_account_engine) (amount : real) : bool =
+  if amount <=. 0.0 then false
+  else if amount >. engine.cash_balance then false
+  else
+    let hypothetical_equity = calculate_equity engine -. amount in
+    if hypothetical_equity <. 0.0 then false
+    else
+      match engine.position with
+      | None -> true
+      | Some p ->
+        let market_value = position_market_value p in
+        let hypothetical_equity_ratio = hypothetical_equity /. market_value in
+        let required_ratio = engine.margin_requirements.initial_margin_pct /. 100.0 in
+        hypothetical_equity_ratio >=. required_ratio
+
+let withdraw (engine : margin_account_engine) (amount : real) : margin_account_engine option =
+  if can_withdraw engine amount then
+    Some { engine with cash_balance = engine.cash_balance -. amount }
+  else
+    None
+
+(* VG1: Solvency Safety — if equity ratio < maintenance, status must be LiquidationCall *)
+verify (fun engine ->
+  match engine.position with
+  | None -> true
+  | Some _ ->
+    match calculate_equity_ratio engine with
+    | None -> true
+    | Some equity_ratio ->
+      let maintenance_ratio = engine.margin_requirements.maintenance_margin_pct /. 100.0 in
+      (equity_ratio <. maintenance_ratio) ==> (check_status engine = LiquidationCall))
+
+(* VG2: Gap Risk — try to find a case where withdrawal leads to LiquidationCall *)
+instance (fun engine amount ->
+  can_withdraw engine amount = true &&
+  (match withdraw engine amount with
+   | Some engine_after -> check_status engine_after = LiquidationCall
+   | None -> false))

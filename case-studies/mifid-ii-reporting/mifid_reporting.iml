@@ -1,0 +1,44 @@
+(* MiFID II Transaction Reporting Classifier
+   Discovered a jurisdictional bug where OTC trades between non-EEA entities
+   were incorrectly flagged as reportable to ESMA. *)
+
+type region = EEA | US | APAC | OTHER
+
+type counterparty_location = EEA_CP | NON_EEA
+
+type venue = LSE | XPAR | XETR | NYSE | OTC
+
+type trade = {
+  instrument_region : region;
+  venue : venue;
+  buyer_loc : counterparty_location;
+  seller_loc : counterparty_location;
+}
+
+let is_eea_exchange (v : venue) : bool =
+  match v with
+  | LSE -> true
+  | XPAR -> true
+  | XETR -> true
+  | NYSE -> false
+  | OTC -> false
+
+let has_eea_counterparty (t : trade) : bool =
+  t.buyer_loc = EEA_CP || t.seller_loc = EEA_CP
+
+(* Fixed version: OTC trades require at least one EEA counterparty *)
+let is_reportable (t : trade) : bool =
+  if is_eea_exchange t.venue then true
+  else if t.instrument_region = EEA && has_eea_counterparty t then true
+  else if t.venue = OTC && has_eea_counterparty t then true
+  else false
+
+(* Jurisdiction Safety: OTC trades between non-EEA entities are NOT reportable — should be PROVED *)
+verify (fun t ->
+  (t.venue = OTC && t.buyer_loc = NON_EEA && t.seller_loc = NON_EEA)
+  ==> (is_reportable t = false))
+
+(* Decomposition: analyze all behavioral regions of is_reportable *)
+let is_reportable_decomp (t : trade) : bool =
+  is_reportable t
+[@@decomp top ()]

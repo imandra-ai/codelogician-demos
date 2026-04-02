@@ -1,0 +1,126 @@
+(* LSE Stop Orders Verification
+   Validated Stop and Stop Limit orders per MIT201 Section 5.2.
+   Found a critical bug where extended functionality for large orders
+   (qty > 1000) bypassed all MIT201 rules, allowing both buy and sell
+   stop orders to elect simultaneously. *)
+
+type side = Buy | Sell
+
+type stop_type = Stop | StopLimit
+
+type order_type = Limit | Market
+
+type stop_order = {
+  side : side;
+  stop_type : stop_type;
+  order_type : order_type;
+  stop_price : int;
+  limit_price : int option;
+  qty : int;
+}
+
+type order = {
+  order_side : side;
+  order_order_type : order_type;
+  order_price : int;
+  order_qty : int;
+}
+
+type order_slot = Empty | Occupied of order
+
+type state = {
+  latp : int;
+  buy_stop_order : stop_order option;
+  sell_stop_order : stop_order option;
+  buy_order_slot : order_slot;
+  sell_order_slot : order_slot;
+}
+
+let is_valid_stop_order (so : stop_order) : bool =
+  so.qty > 0
+  && so.stop_price > 0
+  && (match so.stop_type with
+      | StopLimit ->
+        (match so.limit_price with
+         | Some lp -> lp > 0
+         | None -> false)
+      | Stop -> true)
+
+let is_valid_state (s : state) : bool =
+  s.latp > 0
+  && (match s.buy_stop_order with
+      | Some so -> is_valid_stop_order so && so.side = Buy
+      | None -> true)
+  && (match s.sell_stop_order with
+      | Some so -> is_valid_stop_order so && so.side = Sell
+      | None -> true)
+  && s.buy_order_slot = Empty
+  && s.sell_order_slot = Empty
+
+(* MIT201: Buy stop elects when LATP >= stop price *)
+let stop_price_is_reached_buy (latp : int) (stop_price : int) : bool =
+  latp >= stop_price
+
+(* MIT201: Sell stop elects when LATP <= stop price *)
+let stop_price_is_reached_sell (latp : int) (stop_price : int) : bool =
+  latp <= stop_price
+
+let stop_price_is_reached (s : side) (latp : int) (stop_price : int) : bool =
+  match s with
+  | Buy -> stop_price_is_reached_buy latp stop_price
+  | Sell -> stop_price_is_reached_sell latp stop_price
+
+let elect_stop_order (so : stop_order) : order =
+  match so.stop_type with
+  | Stop ->
+    { order_side = so.side; order_order_type = Market;
+      order_price = 0; order_qty = so.qty }
+  | StopLimit ->
+    let lp = match so.limit_price with Some p -> p | None -> 0 in
+    { order_side = so.side; order_order_type = Limit;
+      order_price = lp; order_qty = so.qty }
+
+(* Fixed version: no large-order bypass *)
+let maybe_elect_stop_order (latp : int) (so : stop_order) : order option =
+  if stop_price_is_reached so.side latp so.stop_price then
+    Some (elect_stop_order so)
+  else
+    None
+
+let step_trade (trade_price : int) (s : state) : state =
+  let s = { s with latp = trade_price } in
+  let (buy_slot, buy_so) =
+    match s.buy_stop_order with
+    | None -> (s.buy_order_slot, None)
+    | Some so ->
+      match maybe_elect_stop_order s.latp so with
+      | Some order -> (Occupied order, None)
+      | None -> (s.buy_order_slot, Some so)
+  in
+  let (sell_slot, sell_so) =
+    match s.sell_stop_order with
+    | None -> (s.sell_order_slot, None)
+    | Some so ->
+      match maybe_elect_stop_order s.latp so with
+      | Some order -> (Occupied order, None)
+      | None -> (s.sell_order_slot, Some so)
+  in
+  { s with
+    buy_order_slot = buy_slot;
+    sell_order_slot = sell_slot;
+    buy_stop_order = buy_so;
+    sell_stop_order = sell_so;
+  }
+
+(* VG: Both buy and sell stop orders should never elect simultaneously
+   (because buy elects when LATP >= buy_stop, sell elects when LATP <= sell_stop,
+    and for valid states buy_stop >= sell_stop cannot both trigger) *)
+let both_elected_simultaneously (s : state) : bool =
+  match s.buy_order_slot, s.sell_order_slot with
+  | Occupied _, Occupied _ -> true
+  | _ -> false
+
+verify (fun s trade_price ->
+  is_valid_state s
+  ==> (let s' = step_trade trade_price s in
+       both_elected_simultaneously s' = false))

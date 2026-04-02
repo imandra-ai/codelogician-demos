@@ -1,0 +1,113 @@
+(* LSE GTT Order Expiry Verification
+   Discovered a critical bug in the London Stock Exchange trading system spec —
+   a race condition between GTT order expiry and auction uncross events
+   that violated MIT201 compliance.
+
+   MIT201: "Any GTT orders with an expiry time during any auction call phase
+   will not be expired until after uncrossing has completed." *)
+
+type auction_event = Auction_call_started | Uncrossed
+
+type order_event = Created | Expired
+
+type mode =
+  | ContinuousMode of { start_auction_call_at : int }
+  | AuctionCallMode of { uncross_at : int }
+
+type gtt_order = { expires_at : int }
+
+type state = {
+  time : int;
+  auction_call_duration : int;
+  auction_interval : int;
+  mode : mode;
+  gtt_order : gtt_order option;
+  auction_event : auction_event option;
+  order_event : order_event option;
+  market_order_present_after_uncross : bool;
+  market_order_extension_period : int;
+}
+
+type message =
+  | Tick
+  | CreateGTTOrder of { order_expires_at : int }
+
+let is_valid_state (s : state) : bool =
+  s.time >= 0
+  && s.auction_call_duration > 0
+  && s.auction_interval > 0
+  && s.market_order_extension_period > 0
+  && (match s.mode with
+      | ContinuousMode { start_auction_call_at } -> start_auction_call_at > s.time
+      | AuctionCallMode { uncross_at } -> uncross_at > s.time)
+  && (match s.gtt_order with
+      | None -> true
+      | Some o -> o.expires_at > s.time)
+
+let events_none (s : state) : bool =
+  s.auction_event = None && s.order_event = None
+
+let maybe_create_gtt_order (expires_at : int) (s : state) : state =
+  if expires_at <= s.time then s
+  else
+    { s with
+      gtt_order = Some { expires_at };
+      order_event = Some Created;
+    }
+
+let start_auction (s : state) : state =
+  { s with
+    mode = AuctionCallMode { uncross_at = s.time + s.auction_call_duration };
+    auction_event = Some Auction_call_started;
+  }
+
+let uncross (s : state) : state =
+  { s with
+    mode = ContinuousMode { start_auction_call_at = s.time + s.auction_interval };
+    auction_event = Some Uncrossed;
+  }
+
+let maybe_uncross (uncross_at : int) (s : state) : state =
+  if s.market_order_present_after_uncross then
+    if s.time >= uncross_at + s.market_order_extension_period then
+      uncross { s with market_order_present_after_uncross = false }
+    else s
+  else
+    uncross s
+
+let maybe_change_mode (s : state) : state =
+  match s.mode with
+  | ContinuousMode { start_auction_call_at } ->
+    if s.time >= start_auction_call_at then start_auction s else s
+  | AuctionCallMode { uncross_at } ->
+    if s.time >= uncross_at then maybe_uncross uncross_at s else s
+
+(* V2: Fixed version — delays GTT expiry during auction until after uncross *)
+let maybe_expire_gtt_order_v2 (s : state) : state =
+  match s.gtt_order with
+  | None -> s
+  | Some order ->
+    let effective_expires_at =
+      match s.mode with
+      | AuctionCallMode { uncross_at } ->
+        if order.expires_at > uncross_at then order.expires_at
+        else uncross_at + 1
+      | ContinuousMode _ -> order.expires_at
+    in
+    if s.time >= effective_expires_at then
+      { s with gtt_order = None; order_event = Some Expired }
+    else s
+
+let tick (s : state) : state =
+  let s = { s with time = s.time + 1 } in
+  let s = maybe_expire_gtt_order_v2 s in
+  maybe_change_mode s
+
+let step (msg : message) (s : state) : state =
+  match msg with
+  | Tick -> tick s
+  | CreateGTTOrder { order_expires_at } -> maybe_create_gtt_order order_expires_at s
+
+(* The conflict: both uncross and expire happen simultaneously *)
+let conflict_detected (s : state) : bool =
+  s.auction_event = Some Uncrossed && s.order_event = Some Expired

@@ -98,6 +98,33 @@ codelogician eval gen-test stripe/stripe_flow_updated.iml -f step -l python
 cd stripe && python -m pytest test_stripe_flow.py -v  # 84/84 passed
 ```
 
+### [case-studies/](case-studies/)
+
+**Industry case studies from [codelogician.dev/docs/industry-case-studies](https://codelogician.dev/docs/industry-case-studies/) — formal verification applied to real financial systems.**
+
+Nine case studies demonstrating bug discovery, redundancy detection, and behavioral analysis across trading, banking, and regulatory domains. Each directory contains an IML formal model with verification goals and/or region decompositions, plus a README with results.
+
+| Case Study | Key Result | Technique |
+|------------|------------|-----------|
+| [algorithmic-trading/](case-studies/algorithmic-trading/) | Redundant XYZ trading rule **PROVED** removable | Verification |
+| [lse-gtt-order-expiry/](case-studies/lse-gtt-order-expiry/) | Race condition in GTT expiry vs auction uncross | State machine modeling |
+| [bank-account-classification/](case-studies/bank-account-classification/) | 21% code growth → **190% region growth** (19→55) | Decomposition |
+| [lse-stop-orders/](case-studies/lse-stop-orders/) | Simultaneous buy+sell election bug **REFUTED** | Verification + counterexample |
+| [interest-rate-swap/](case-studies/interest-rate-swap/) | No weekends **PROVED**, naive monotonicity **REFUTED** | Verification |
+| [multilateral-netting/](case-studies/multilateral-netting/) | Float precision bug; exact arithmetic in IML | Modeling |
+| [margin-account/](case-studies/margin-account/) | Solvency safety **PROVED**, gap risk safe | Verification + instance |
+| [exchange-fee-schedule/](case-studies/exchange-fee-schedule/) | Penny Jump **PROVED**, 5 fee regions found | Verification + decomposition |
+| [mifid-ii-reporting/](case-studies/mifid-ii-reporting/) | Jurisdiction safety **PROVED**, 12 reporting regions | Verification + decomposition |
+
+```bash
+# Run any case study (example: interest rate swap)
+cd case-studies/interest-rate-swap
+codelogician-lite check irs_scheduler.iml
+codelogician-lite check-vg irs_scheduler.iml
+```
+
+---
+
 ## Learn More
 
 - [CodeLogician](https://codelogician.dev) — Neurosymbolic governance framework for AI-powered coding

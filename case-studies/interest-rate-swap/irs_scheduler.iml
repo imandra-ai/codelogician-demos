@@ -1,0 +1,37 @@
+(* Interest Rate Swap Schedule Generator
+   Formal verification of date calculation logic for IRS.
+   Proves weekend payments are impossible and discovers edge cases
+   in date monotonicity. *)
+
+let weekday (date : int) : int = date mod 7
+
+let is_weekend (date : int) : bool = weekday date >= 5
+
+let adjust_following (date : int) : int =
+  let wd = weekday date in
+  if wd = 5 then date + 2
+  else if wd = 6 then date + 1
+  else date
+
+let adjust_preceding (date : int) : int =
+  let wd = weekday date in
+  if wd = 5 then date - 1
+  else if wd = 6 then date - 2
+  else date
+
+let dates_strictly_increasing (d1 : int) (d2 : int) : bool = d2 > d1
+
+let both_adjusted_strictly_increasing (d1 : int) (d2 : int) : bool =
+  let adj1 = adjust_following d1 in
+  let adj2 = adjust_following d2 in
+  adj2 > adj1
+
+(* VG1: No weekend dates after adjustment — should be PROVED *)
+verify (fun date -> is_weekend (adjust_following date) = false)
+
+(* VG2: Naive monotonicity — should be REFUTED
+   Counterexample: consecutive weekend dates collapse to same Monday *)
+verify (fun d1 d2 -> d1 < d2 ==> adjust_following d1 < adjust_following d2)
+
+(* VG3: Practical monotonicity for swap scheduling (7+ day gaps) — should be PROVED *)
+verify (fun d1 d2 -> d2 >= d1 + 7 ==> adjust_following d1 < adjust_following d2)

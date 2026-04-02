@@ -1,0 +1,60 @@
+(* Multilateral Netting Engine Verification
+   Identified two critical bugs in a CCP multilateral netting engine:
+   Bug 1: No input validation — negative amounts accepted
+   Bug 2: Floating-point precision failure (IEEE 754) causing phantom money *)
+
+type trade = {
+  payer_id : LString.t;
+  receiver_id : LString.t;
+  amount : real;
+}
+
+let is_valid_trade (t : trade) : bool =
+  t.amount >=. 0.0 && t.payer_id <> t.receiver_id
+
+let update_position (positions : (LString.t * real) list) (participant : LString.t) (delta : real)
+    : (LString.t * real) list =
+  let current =
+    List.assoc participant positions |> Option.get_or ~default:0.0
+  in
+  let new_value = current +. delta in
+  let without_participant =
+    List.filter (fun (id, _) -> id <> participant) positions
+  in
+  (participant, new_value) :: without_participant
+
+let process_trade (positions : (LString.t * real) list) (t : trade)
+    : (LString.t * real) list =
+  let after_payer = update_position positions t.payer_id (Real.(~-) t.amount) in
+  update_position after_payer t.receiver_id t.amount
+
+let calculate_net_obligations (trades : trade list) : (LString.t * real) list =
+  List.fold_left process_trade [] trades
+
+let verify_zero_sum (net_positions : (LString.t * real) list) (tolerance : real) : bool =
+  let total =
+    List.fold_left (fun acc (_, pos) -> acc +. pos) 0.0 net_positions
+  in
+  Real.abs total <. tolerance
+
+let calculate_gross_exposure (trades : trade list) : real =
+  List.fold_left (fun acc t -> acc +. t.amount) 0.0 trades
+
+let calculate_net_exposure (net_positions : (LString.t * real) list) : real =
+  List.fold_left (fun acc (_, pos) -> acc +. Real.abs pos) 0.0 net_positions
+
+let verify_netting_efficiency (trades : trade list) (net_positions : (LString.t * real) list)
+    : bool =
+  let gross_exposure = calculate_gross_exposure trades in
+  let net_exposure = calculate_net_exposure net_positions in
+  net_exposure <=. gross_exposure
+
+let calculate_netting_benefit (trades : trade list) (net_positions : (LString.t * real) list)
+    : real =
+  match trades with
+  | [] -> 0.0
+  | _ ->
+    let gross_exposure = calculate_gross_exposure trades in
+    let net_exposure = calculate_net_exposure net_positions in
+    if gross_exposure = 0.0 then 0.0
+    else ((gross_exposure -. net_exposure) /. gross_exposure) *. 100.0
